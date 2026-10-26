@@ -1,2 +1,4 @@
 paho-mqtt==2.1.0
+psycopg==3.3.6
+psycopg-binary==3.3.6
 pyserial==3.5

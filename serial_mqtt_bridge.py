@@ -11,21 +11,23 @@ Setup:
     pip install pyserial paho-mqtt
 
 Run:
-    python serial_mqtt_bridge.py --dry-run     # print messages, don't publish
-    python serial_mqtt_bridge.py               # auto-detect port, public test broker
-    python serial_mqtt_bridge.py --port /dev/cu.usbmodem1101 --broker localhost
+    python serial_mqtt_bridge.py --dry-run --port /dev/cu.usbmodem1101   # print, don't publish
+    python serial_mqtt_bridge.py --port /dev/cu.usbmodem1101             # local broker
+    python serial_mqtt_bridge.py --port /dev/cu.usbmodem1101 --broker test.mosquitto.org
 
 Close the Arduino Serial Monitor first; only one program can hold the port.
+Start the local broker first with: docker compose up -d
 
 Topics (prefix defaults to hologram-mvp/<device-id>):
     <prefix>/reading   sensor readings (retained, so new subscribers see the latest)
     <prefix>/error     sensor read failures
-    <prefix>/event     boot and other device events
+    <prefix>/event     device events (boot) and bridge health events
+                       (device_silent, device_resumed, serial_reopened; "source":"bridge")
     <prefix>/status    "online" / "offline" (retained; "offline" is the MQTT last will,
                        so it's published by the broker if the bridge dies unexpectedly)
 
-Watch the messages from another terminal (brew install mosquitto):
-    mosquitto_sub -h test.mosquitto.org -t 'hologram-mvp/#' -v
+Watch the messages from another terminal:
+    docker compose exec mosquitto mosquitto_sub -t 'hologram-mvp/#' -v
 """
 
 import argparse
@@ -64,6 +66,22 @@ def find_port():
         listing = "\n".join(f"  {p.device}  ({p.description})" for p in matches)
         sys.exit(f"Several boards are connected; pick one with --port:\n{listing}")
     return matches[0].device if matches else None
+
+
+def lock_port(ser):
+    """Stop any other program (e.g. the Arduino Serial Monitor) opening the port.
+
+    On macOS and Linux two programs can open the same serial port at once, and
+    each line then goes to whichever one reads first, so the bridge silently
+    misses readings. TIOCEXCL makes further opens fail with "resource busy"
+    until this program closes the port.
+    """
+    try:
+        import fcntl
+        import termios
+        fcntl.ioctl(ser.fileno(), termios.TIOCEXCL)
+    except (ImportError, AttributeError, OSError) as e:  # e.g. Windows
+        log.warning("couldn't lock the serial port for exclusive use: %s", e)
 
 
 def parse_line(raw):
@@ -150,6 +168,13 @@ class Bridge:
             self.client.publish(topic, payload, qos=1, retain=(kind == "reading"))
         self.stats["published"] += 1
 
+    def bridge_event(self, code, **extra):
+        """Publish a health event the bridge observed (as opposed to one the device sent)."""
+        msg = {"event": code, "source": "bridge", **extra,
+               "device_id": self.args.device_id,
+               "received_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+        self.publish("event", msg)
+
     def stop_mqtt(self):
         if self.client is None:
             return
@@ -171,11 +196,15 @@ class Bridge:
                 log.warning("no Arduino port found; retrying in 5 s (use --port to set one)")
             else:
                 try:
-                    ser = serial.Serial(port, self.args.baud, timeout=2)
-                    log.info("opened %s at %d baud", port, self.args.baud)
+                    # exclusive=True takes an advisory lock, which stops a second
+                    # copy of this bridge from opening the port.
+                    ser = serial.Serial(port, self.args.baud, timeout=2, exclusive=True)
+                    lock_port(ser)
+                    log.info("opened %s at %d baud (exclusive)", port, self.args.baud)
                     return ser
                 except serial.SerialException as e:
-                    log.warning("can't open %s: %s; retrying in 5 s", port, e)
+                    log.warning("can't open %s: %s; retrying in 5 s "
+                                "(is the Serial Monitor or another bridge using it?)", port, e)
             time.sleep(5)
         return None
 
@@ -194,19 +223,24 @@ class Bridge:
                 self.stats["serial_reconnects"] += 1
                 ser = self.open_serial()
                 last_data = time.monotonic()
+                if ser is not None:
+                    self.bridge_event("serial_reopened", error=str(e)[:200])
                 continue
 
             if not raw:  # read timed out with no data
                 silent = time.monotonic() - last_data
                 if silent > self.args.silence_warn and not warned_silent:
                     log.warning("no data from device for %.0f s", silent)
+                    self.bridge_event("device_silent", silent_s=round(silent))
                     warned_silent = True
                 continue
 
-            last_data = time.monotonic()
             if warned_silent:
+                silent = time.monotonic() - last_data
                 log.info("device data resumed")
+                self.bridge_event("device_resumed", silent_s=round(silent))
                 warned_silent = False
+            last_data = time.monotonic()
 
             self.stats["lines"] += 1
             msg = parse_line(raw)
@@ -236,7 +270,8 @@ def main():
     p = argparse.ArgumentParser(description="Bridge Uno serial JSON lines to MQTT.")
     p.add_argument("--port", help="serial port (default: auto-detect)")
     p.add_argument("--baud", type=int, default=9600)
-    p.add_argument("--broker", default="test.mosquitto.org")
+    p.add_argument("--broker", default="localhost",
+                   help="MQTT broker (default: the local one from docker-compose.yml)")
     p.add_argument("--mqtt-port", type=int, default=1883)
     p.add_argument("--username")
     p.add_argument("--password")
