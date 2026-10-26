@@ -1,0 +1,44 @@
+# Local stack: Postgres for storage and a private Mosquitto broker.
+#
+#   docker compose up -d        start in the background
+#   docker compose ps           check both are healthy
+#   docker compose down         stop (data is kept)
+#   docker compose down -v      stop and DELETE all data (re-runs db/init on next start)
+#
+# Ports are bound to 127.0.0.1 so neither service is exposed to your network.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: weather
+      POSTGRES_USER: weather
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weather}   # override in a .env file
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weather -d weather"]
+      interval: 5s
+      retries: 10
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqttdata:/mosquitto/data
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+  mqttdata:
