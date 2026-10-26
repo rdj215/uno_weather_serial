@@ -3,3 +3,4 @@ __pycache__/
 .env
 dead_letter.jsonl
 .DS_Store
+CLAUDE.md
