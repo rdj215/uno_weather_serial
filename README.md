@@ -74,12 +74,12 @@ The shield uses pins 6 (power key), 7 (reset), 10 (modem TX → Uno RX) and 11 (
 
 | File | Purpose |
 |---|---|
-| `cellular_weather/cellular_weather.ino` | Device sketch: reads the DHT11 and the modem's connection status, sends both to the Hologram cloud every 15 minutes |
-| `cellular_weather/secrets.example.h` | Template for `secrets.h`, which holds the Hologram device key (gitignored) |
-| `modem_diagnostics/modem_diagnostics.ino` | Bring-up and troubleshooting sketch: finds the modem safely, logs signal, registration, battery and the modem's own power messages |
+| `firmware/cellular_weather/cellular_weather.ino` | Device sketch: reads the DHT11 and the modem's connection status, sends both to the Hologram cloud every 15 minutes |
+| `firmware/cellular_weather/secrets.example.h` | Template for `secrets.h`, which holds the Hologram device key (gitignored) |
+| `firmware/modem_diagnostics/modem_diagnostics.ino` | Bring-up and troubleshooting sketch: finds the modem safely, logs signal, registration, battery and the modem's own power messages |
 | `hologram_poller.py` | Pulls the device's messages from the Hologram REST API into Postgres |
 | `docs/bringup-runbook.md` | Bring-up runbook: hardware to verified cellular data session |
-| `uno_weather_serial.ino` | Bench-test sketch: reads the DHT11 every 10 s and prints JSON over USB |
+| `firmware/uno_weather_serial/uno_weather_serial.ino` | Bench-test sketch: reads the DHT11 every 10 s and prints JSON over USB |
 | `serial_mqtt_bridge.py` | Reads the Uno's serial output and publishes it to MQTT |
 | `mqtt_to_postgres.py` | Subscribes to MQTT and writes readings and device logs to Postgres |
 | `docker-compose.yml` | Local Postgres, plus Mosquitto for bench testing (`--profile bench`) |
@@ -94,8 +94,8 @@ Bring the hardware up first with the [runbook](docs/bringup-runbook.md). Then:
 
 ### 1. Configure and flash the device
 
-1. Copy `cellular_weather/secrets.example.h` to `cellular_weather/secrets.h` and put the device key in it (Hologram dashboard → device → Device key).
-2. Open `cellular_weather/cellular_weather.ino`, select **Arduino Uno** and the port, and upload.
+1. Copy `firmware/cellular_weather/secrets.example.h` to `firmware/cellular_weather/secrets.h` and put the device key in it (Hologram dashboard → device → Device key).
+2. Open `firmware/cellular_weather/cellular_weather.ino`, select **Arduino Uno** and the port, and upload.
 3. Serial Monitor at **115200 baud**, "Both NL & CR". Within about a minute you should see a `STATUS` line marked `(registered)`, then `Hologram accepted the message` for a boot event and a first reading. Type `send` to send a reading on demand.
 
 ### 2. Start Postgres and apply the cellular migration
@@ -128,7 +128,7 @@ python3 hologram_poller.py                 # polls every 60 s
 ### 1. Flash the Uno
 
 1. In the Arduino IDE, install **DHT sensor library** by Adafruit (choose *Install All* to include Adafruit Unified Sensor).
-2. Open `uno_weather_serial.ino`, select **Arduino Uno** and the board's port, and upload.
+2. Open `firmware/uno_weather_serial/uno_weather_serial.ino`, select **Arduino Uno** and the board's port, and upload.
 3. Open the Serial Monitor at 9600 baud to confirm readings, then close it before starting the bridge.
 
 ### 2. Start Postgres and the broker

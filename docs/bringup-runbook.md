@@ -138,7 +138,7 @@ The NTP sync is already proof of a round trip to the internet: device → carrie
 
 Once steps 3–5 pass:
 
-1. Copy `cellular_weather/secrets.example.h` to `cellular_weather/secrets.h` and put the device key in it (dashboard → device → Device key). It's gitignored.
+1. Copy `firmware/cellular_weather/secrets.example.h` to `firmware/cellular_weather/secrets.h` and put the device key in it (dashboard → device → Device key). It's gitignored.
 2. Upload `cellular_weather.ino`. Serial Monitor at **115200 baud**.
 3. Expected within about a minute: `modem is on and answering`, a `STATUS` line showing `(registered)`, then `Hologram accepted the message` for a boot event and a first reading.
 4. On the laptop, run `hologram_poller.py` (see the README). The reading should appear in Postgres with `transport = 'cellular'`.

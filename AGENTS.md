@@ -33,11 +33,11 @@ Both paths write the same tables, marked `transport = 'serial'` or `'cellular'`.
 
 ### Files
 
-- `cellular_weather/cellular_weather.ino`: device sketch. Reads the DHT11 and the modem's status, sends both as JSON to `cloudsocket.hologram.io:9999` every 15 min, authenticated with the device key from `secrets.h`. Presses the modem's power key only if the modem doesn't answer, because the key toggles power.
-- `cellular_weather/secrets.example.h`: template for `secrets.h` (gitignored), which holds the Hologram device key (dashboard: SIM → Webhook tab → "SIM key").
-- `modem_diagnostics/modem_diagnostics.ino`: bring-up and troubleshooting sketch. Finds the modem safely and logs signal, registration, battery voltage and the modem's own power-down messages.
+- `firmware/cellular_weather/cellular_weather.ino`: device sketch. Reads the DHT11 and the modem's status, sends both as JSON to `cloudsocket.hologram.io:9999` every 15 min, authenticated with the device key from `secrets.h`. Presses the modem's power key only if the modem doesn't answer, because the key toggles power.
+- `firmware/cellular_weather/secrets.example.h`: template for `secrets.h` (gitignored), which holds the Hologram device key (dashboard: SIM → Webhook tab → "SIM key").
+- `firmware/modem_diagnostics/modem_diagnostics.ino`: bring-up and troubleshooting sketch. Finds the modem safely and logs signal, registration, battery voltage and the modem's own power-down messages.
 - `hologram_poller.py`: polls the Hologram REST API (`GET /csr/data`) every 60 s and writes messages to Postgres. Reads `HOLOGRAM_API_KEY` and `HOLOGRAM_DEVICE_ID` from `.env`. Real API records have `data` as an object whose `data` field is the device's JSON already parsed; older records use a JSON string with a base64 payload, and the decoder handles both. `--once --dump` prints the raw response.
-- `uno_weather_serial.ino`: bench-test sketch. Reads the DHT11 every 10 s and prints one JSON object per line at 9600 baud. Uses `DHT_PIN = 12`, `DHT_POWER_PIN = 13`, Adafruit "DHT sensor library".
+- `firmware/uno_weather_serial/uno_weather_serial.ino`: bench-test sketch. Reads the DHT11 every 10 s and prints one JSON object per line at 9600 baud. Uses `DHT_PIN = 12`, `DHT_POWER_PIN = 13`, Adafruit "DHT sensor library".
 - `serial_mqtt_bridge.py`: serial → MQTT. Topics `hologram-mvp/<device_id>/{reading,error,event,status}`. Retained readings, QoS 1, last-will `offline` on the status topic, serial and MQTT auto-reconnect, exclusive port lock, publishes bridge health events (`device_silent`, `device_resumed`, `serial_reopened`, with `"source":"bridge"`). Refuses to auto-pick a port when more than one board is connected. Default broker is `localhost`.
 - `mqtt_to_postgres.py`: MQTT → Postgres. Persistent session (fixed client ID, `clean_session=False`) so messages queue while it's stopped; dedupes retained replays; validates device IDs from the topic; rejects bad data and writes it with a reason to `dead_letter.jsonl`.
 - `db/init/001_schema.sql`: tables `devices`, `readings`, `device_logs` (level / category / code / source / payload jsonb); views `latest_readings` and `device_health`.
@@ -99,5 +99,5 @@ Open issue: the modem once went silent after registering; cause not confirmed (l
 - Keep the README accurate as things change: update the status table, and add real issues to the troubleshooting log (never invented ones).
 - Don't overstate progress: work stays marked as planned or pending until it actually runs.
 - Use the venv for Python; don't use `--break-system-packages`.
-- Don't commit secrets. `.env`, `.venv/`, `dead_letter.jsonl`, `.DS_Store` and `cellular_weather/secrets.h` are gitignored. The Hologram API key goes in `.env`, the device key in `secrets.h`. Don't put the full ICCID, phone numbers, or cell tower location/IDs in public docs.
+- Don't commit secrets. `.env`, `.venv/`, `dead_letter.jsonl`, `.DS_Store` and `firmware/cellular_weather/secrets.h` are gitignored. The Hologram API key goes in `.env`, the device key in `secrets.h`. Don't put the full ICCID, phone numbers, or cell tower location/IDs in public docs.
 - Keep this file in sync with any engineering changes.

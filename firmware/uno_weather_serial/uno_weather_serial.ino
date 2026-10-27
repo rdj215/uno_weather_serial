@@ -3,8 +3,8 @@
 
   Bench-test sketch: prints one JSON reading per line over USB serial, which
   serial_mqtt_bridge.py on the laptop publishes to MQTT. The cellular sketch
-  (cellular_weather/cellular_weather.ino) is the main path; this one tests the
-  sensor and the serial -> MQTT -> Postgres pipeline without the modem.
+  (firmware/cellular_weather/cellular_weather.ino) is the main path; this one
+  tests the sensor and the serial -> MQTT -> Postgres pipeline without the modem.
 
   Wiring: the DHT11 module plugs straight into the top header (the Uno's, or
   the SIM7000G shield's, which passes through), no jumper wires:
