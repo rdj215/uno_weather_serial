@@ -8,7 +8,7 @@ keeps working unchanged once the Uno publishes over cellular and the laptop
 bridge is retired.
 
 Setup:
-    docker compose up -d               # Postgres + local Mosquitto
+    docker compose --profile bench up -d   # Postgres + local Mosquitto
     pip install -r requirements.txt    # needs paho-mqtt and psycopg[binary]
 
 Run:
@@ -28,7 +28,6 @@ dead_letter.jsonl so nothing disappears silently.
 import argparse
 import json
 import logging
-import os
 import re
 import signal
 import sys
@@ -38,6 +37,8 @@ from datetime import datetime, timezone
 import paho.mqtt.client as mqtt
 import psycopg
 from psycopg.types.json import Jsonb
+
+from storage import connect, database_url, touch_device
 
 log = logging.getLogger("mqtt_to_postgres")
 
@@ -91,7 +92,7 @@ class Store:
         self.conn = None
 
     def connect(self):
-        self.conn = psycopg.connect(self.dsn, autocommit=True, connect_timeout=5)
+        self.conn = connect(self.dsn)
         log.info("connected to Postgres")
 
     def run(self, fn, attempts=3):
@@ -112,22 +113,6 @@ class Store:
     def close(self):
         if self.conn is not None:
             self.conn.close()
-
-
-def touch_device(cur, device_id, seen_at, update_last_seen):
-    if update_last_seen:
-        cur.execute(
-            """INSERT INTO devices (device_id, first_seen, last_seen) VALUES (%s, %s, %s)
-               ON CONFLICT (device_id) DO UPDATE
-               SET last_seen = greatest(devices.last_seen, excluded.last_seen)""",
-            (device_id, seen_at, seen_at),
-        )
-    else:
-        cur.execute(
-            """INSERT INTO devices (device_id, first_seen, last_seen) VALUES (%s, %s, %s)
-               ON CONFLICT (device_id) DO NOTHING""",
-            (device_id, seen_at, seen_at),
-        )
 
 
 def store_reading(cur, device_id, msg):
@@ -312,9 +297,7 @@ def main():
     p.add_argument("--password")
     p.add_argument("--topic-root", default="hologram-mvp")
     p.add_argument("--client-id", default="weather-db-writer")
-    p.add_argument("--database-url",
-                   default=os.environ.get("DATABASE_URL",
-                                          "postgresql://weather:weather@localhost:5432/weather"))
+    p.add_argument("--database-url", default=database_url())
     p.add_argument("--dead-letter", default="dead_letter.jsonl")
     p.add_argument("-v", "--verbose", action="store_true")
     args = p.parse_args()

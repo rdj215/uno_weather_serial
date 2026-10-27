@@ -3,7 +3,7 @@
 hologram_poller.py — pulls the weather node's cellular messages from the
 Hologram REST API and stores them in Postgres.
 
-The device (cellular_weather.ino) sends each reading to Hologram's cloud over
+The device (firmware/cellular_weather/cellular_weather.ino) sends each reading to Hologram's cloud over
 LTE-M. Hologram keeps the messages; this script fetches new ones every minute
 and writes them to the same tables as the serial bridge, marked
 transport = 'cellular'.
@@ -48,6 +48,8 @@ from pathlib import Path
 import psycopg
 import requests
 from psycopg.types.json import Jsonb
+
+from storage import connect, database_url, touch_device
 
 log = logging.getLogger("hologram_poller")
 
@@ -141,15 +143,6 @@ def as_number(payload, key):
 
 # ---------------------------------------------------------------- storage
 
-def touch_device(cur, device_id, seen_at):
-    cur.execute(
-        """INSERT INTO devices (device_id, first_seen, last_seen) VALUES (%s, %s, %s)
-           ON CONFLICT (device_id) DO UPDATE
-           SET last_seen = greatest(devices.last_seen, excluded.last_seen)""",
-        (device_id, seen_at, seen_at),
-    )
-
-
 def store(cur, device_id, record_id, logged, payload):
     """Write one message. Returns 'reading', 'error', 'event' or 'duplicate'."""
     touch_device(cur, device_id, logged)
@@ -239,7 +232,7 @@ class Poller:
 
     def db(self):
         if self.conn is None or self.conn.closed:
-            self.conn = psycopg.connect(self.args.database_url, autocommit=True, connect_timeout=5)
+            self.conn = connect(self.args.database_url)
         return self.conn
 
     def fetch_page(self, timestart, startafter):
@@ -340,9 +333,7 @@ def main():
     p.add_argument("--interval", type=float, default=60, help="seconds between polls")
     p.add_argument("--lookback-hours", type=float, default=24,
                    help="how far back to fetch when the database has no cellular rows yet")
-    p.add_argument("--database-url",
-                   default=os.environ.get("DATABASE_URL",
-                                          "postgresql://weather:weather@localhost:5432/weather"))
+    p.add_argument("--database-url", default=database_url())
     p.add_argument("--dead-letter", default="dead_letter.jsonl")
     p.add_argument("--api-base", default=API_BASE, help=argparse.SUPPRESS)  # for testing
     p.add_argument("--once", action="store_true", help="poll once and exit")

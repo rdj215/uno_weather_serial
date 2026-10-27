@@ -43,6 +43,9 @@ Both paths write the same tables, marked `transport = 'serial'` or `'cellular'`.
 - `db/init/001_schema.sql`: tables `devices`, `readings`, `device_logs` (level / category / code / source / payload jsonb); views `latest_readings` and `device_health`.
 - `db/init/002_cellular.sql`: cellular columns on `readings` and `device_logs`, views `cellular_messages` and `cellular_gaps`, and a transport-aware `device_health` (ok / stale / offline; stale means 2 min without data over serial or 35 min over cellular). Scripts in `db/init/` run only when the database is first created; apply this one manually to an existing database.
 - `docs/bringup-runbook.md`: hardware to verified cellular data session.
+- `storage.py`: Postgres connection, `DATABASE_URL` default and `touch_device` (register a device; `last_seen` only moves forward), shared by `hologram_poller.py` and `mqtt_to_postgres.py`. Each script keeps its own INSERTs because cellular rows carry extra columns.
+- `tests/`: pytest unit tests with fake cursors and ports (`tests/conftest.py`), no hardware or database needed. Includes regressions for the two-board port mix-up and the cut-off first line.
+- `pyproject.toml` (pytest and ruff settings), `requirements-dev.txt` (pytest, ruff), `.github/workflows/ci.yml` (lint + tests on push and PRs).
 - `mosquitto/mosquitto.conf`, `docker-compose.yml`, `requirements.txt`, `README.md`, `docs/uno-dht11.jpg`.
 
 ### Running it
@@ -99,5 +102,7 @@ Open issue: the modem once went silent after registering; cause not confirmed (l
 - Keep the README accurate as things change: update the status table, and add real issues to the troubleshooting log (never invented ones).
 - Don't overstate progress: work stays marked as planned or pending until it actually runs.
 - Use the venv for Python; don't use `--break-system-packages`.
+- Run `ruff check .` and `pytest` before committing; CI runs both. Add a test for each real bug fixed.
+- Arduino sketches live in `firmware/<name>/<name>.ino`; the IDE requires the folder and file names to match.
 - Don't commit secrets. `.env`, `.venv/`, `dead_letter.jsonl`, `.DS_Store` and `firmware/cellular_weather/secrets.h` are gitignored. The Hologram API key goes in `.env`, the device key in `secrets.h`. Don't put the full ICCID, phone numbers, or cell tower location/IDs in public docs.
 - Keep this file in sync with any engineering changes.

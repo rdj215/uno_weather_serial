@@ -3,9 +3,10 @@
 serial_mqtt_bridge.py — reads JSON lines from the Uno weather node over USB
 serial and publishes them to an MQTT broker.
 
-This is a stand-in for the SIM7000 cellular shield: for now the laptop is the
-Uno's network connection. When the shield arrives, the Uno publishes over
-cellular itself and this script is retired.
+This is the serial bench-test path: the laptop is the Uno's network
+connection, for testing the sensor and the MQTT -> Postgres pipeline without
+the modem. The main path is cellular (firmware/cellular_weather/ and
+hologram_poller.py), which doesn't use this script.
 
 Setup:
     pip install pyserial paho-mqtt
@@ -16,7 +17,7 @@ Run:
     python serial_mqtt_bridge.py --port /dev/cu.usbmodem1101 --broker test.mosquitto.org
 
 Close the Arduino Serial Monitor first; only one program can hold the port.
-Start the local broker first with: docker compose up -d
+Start the local broker first with: docker compose --profile bench up -d
 
 Topics (prefix defaults to hologram-mvp/<device-id>):
     <prefix>/reading   sensor readings (retained, so new subscribers see the latest)

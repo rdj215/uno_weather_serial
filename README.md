@@ -1,5 +1,7 @@
 # Cellular Weather Node (Arduino Uno + Hologram SIM)
 
+[![CI](https://github.com/rdj215/uno_weather_serial/actions/workflows/ci.yml/badge.svg)](https://github.com/rdj215/uno_weather_serial/actions/workflows/ci.yml)
+
 A small IoT weather station built to work through the full life of a cellular IoT deployment: device bring-up, data transport over MQTT, connectivity monitoring, and troubleshooting.
 
 An Arduino Uno with a Botletics SIM7000G shield reports temperature, humidity, and its own connection health over LTE Cat-M1 using a Hologram SIM. Readings go through the Hologram cloud, a Python poller pulls them from the Hologram REST API into Postgres, and SQL views flag stale devices and lost messages. A USB-serial path through a local MQTT broker is kept for bench testing.
@@ -82,11 +84,15 @@ The shield uses pins 6 (power key), 7 (reset), 10 (modem TX → Uno RX) and 11 (
 | `firmware/uno_weather_serial/uno_weather_serial.ino` | Bench-test sketch: reads the DHT11 every 10 s and prints JSON over USB |
 | `serial_mqtt_bridge.py` | Reads the Uno's serial output and publishes it to MQTT |
 | `mqtt_to_postgres.py` | Subscribes to MQTT and writes readings and device logs to Postgres |
+| `storage.py` | Postgres connection and device registration shared by the poller and the MQTT writer |
+| `tests/` | Unit tests for message decoding, validation and port selection (no hardware or database needed) |
 | `docker-compose.yml` | Local Postgres, plus Mosquitto for bench testing (`--profile bench`) |
 | `db/init/001_schema.sql` | Tables, indexes and views, applied on first database start |
 | `db/init/002_cellular.sql` | Cellular columns, message-gap views and transport-aware health view |
 | `mosquitto/mosquitto.conf` | Local broker config |
 | `requirements.txt` | Python dependencies |
+| `requirements-dev.txt`, `pyproject.toml` | Test and lint tools (pytest, ruff) and their settings |
+| `.github/workflows/ci.yml` | Runs the linter and tests on every push and pull request |
 
 ## Setup: cellular
 
@@ -171,6 +177,17 @@ docker compose exec mosquitto mosquitto_sub -t 'hologram-mvp/#' -v
 ```
 
 Both scripts accept `--broker` to use a different broker, such as `test.mosquitto.org`. That one is public, so anyone can read what's published there, and anyone could publish to your topics too.
+
+## Development
+
+```bash
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+ruff check .     # lint
+pytest           # unit tests
+```
+
+The tests use fake cursors and serial ports, so they need no hardware, broker or database. They cover the Hologram API decoder against both the current and the older record shapes, message validation and routing, and regressions from the troubleshooting log (the two-board port mix-up and the cut-off first line). GitHub Actions runs the same checks on every push.
 
 ## Data format
 

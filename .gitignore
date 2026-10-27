@@ -5,3 +5,5 @@ dead_letter.jsonl
 .DS_Store
 CLAUDE.md
 firmware/cellular_weather/secrets.h
+.pytest_cache/
+.ruff_cache/
