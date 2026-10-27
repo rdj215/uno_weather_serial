@@ -82,7 +82,7 @@ The shield uses pins 6 (power key), 7 (reset), 10 (modem TX → Uno RX) and 11 (
 | `uno_weather_serial.ino` | Bench-test sketch: reads the DHT11 every 10 s and prints JSON over USB |
 | `serial_mqtt_bridge.py` | Reads the Uno's serial output and publishes it to MQTT |
 | `mqtt_to_postgres.py` | Subscribes to MQTT and writes readings and device logs to Postgres |
-| `docker-compose.yml` | Local Postgres and Mosquitto |
+| `docker-compose.yml` | Local Postgres, plus Mosquitto for bench testing (`--profile bench`) |
 | `db/init/001_schema.sql` | Tables, indexes and views, applied on first database start |
 | `db/init/002_cellular.sql` | Cellular columns, message-gap views and transport-aware health view |
 | `mosquitto/mosquitto.conf` | Local broker config |
@@ -136,11 +136,11 @@ python3 hologram_poller.py                 # polls every 60 s
 Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
 ```bash
-docker compose up -d
-docker compose ps        # both services should show "running"
+docker compose --profile bench up -d
+docker compose ps        # both postgres and mosquitto should show "running"
 ```
 
-The schema in `db/init/` is applied automatically the first time Postgres starts. Both services listen only on `127.0.0.1`.
+Mosquitto is only needed for this serial path, so it sits behind the `bench` profile; a plain `docker compose up -d` starts Postgres alone. Stop the broker afterwards with `docker compose --profile bench stop mosquitto`. The schema in `db/init/` is applied automatically the first time Postgres starts. Both services listen only on `127.0.0.1`.
 
 ### 3. Install the Python dependencies
 

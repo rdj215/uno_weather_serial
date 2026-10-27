@@ -1,9 +1,11 @@
-# Local stack: Postgres for storage and a private Mosquitto broker.
+# Local stack: Postgres for storage, plus a private Mosquitto broker for the
+# serial bench-test path only (the cellular path doesn't use MQTT).
 #
-#   docker compose up -d        start in the background
-#   docker compose ps           check both are healthy
-#   docker compose down         stop (data is kept)
-#   docker compose down -v      stop and DELETE all data (re-runs db/init on next start)
+#   docker compose up -d                    start Postgres in the background
+#   docker compose --profile bench up -d    also start Mosquitto, for bench testing
+#   docker compose ps                       check what's running
+#   docker compose --profile bench down     stop everything (data is kept)
+#   docker compose --profile bench down -v  stop and DELETE all data (re-runs db/init on next start)
 #
 # Ports are bound to 127.0.0.1 so neither service is exposed to your network.
 
@@ -27,6 +29,7 @@ services:
 
   mosquitto:
     image: eclipse-mosquitto:2
+    profiles: ["bench"]   # starts only with --profile bench
     ports:
       - "127.0.0.1:1883:1883"
     volumes:

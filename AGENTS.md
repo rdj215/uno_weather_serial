@@ -29,7 +29,7 @@ Bench-test path (serial):
 DHT11 -> Uno --USB serial, JSON lines--> serial_mqtt_bridge.py --MQTT--> Mosquitto --> mqtt_to_postgres.py --> Postgres
 ```
 
-Both paths write the same tables, marked `transport = 'serial'` or `'cellular'`. Mosquitto and Postgres run locally via `docker-compose.yml`, bound to 127.0.0.1. Hologram's cloud was chosen over MQTT-over-cellular because a hosted broker needs TLS, which doesn't fit the Uno's 2 KB of RAM, and the local broker isn't reachable from the cellular network.
+Both paths write the same tables, marked `transport = 'serial'` or `'cellular'`. Postgres and Mosquitto run locally via `docker-compose.yml`, bound to 127.0.0.1. Mosquitto is only used by the serial path, so it's behind the `bench` Compose profile and doesn't start by default. Hologram's cloud was chosen over MQTT-over-cellular because a hosted broker needs TLS, which doesn't fit the Uno's 2 KB of RAM, and the local broker isn't reachable from the cellular network.
 
 ### Files
 
@@ -48,7 +48,7 @@ Both paths write the same tables, marked `transport = 'serial'` or `'cellular'`.
 ### Running it
 
 ```bash
-docker compose up -d
+docker compose up -d               # Postgres only; add --profile bench to also start Mosquitto
 source .venv/bin/activate          # Homebrew Python blocks system-wide pip, so always use the venv
 
 # Existing database only: apply the cellular migration once
@@ -58,7 +58,7 @@ docker compose exec -T postgres psql -U weather < db/init/002_cellular.sql
 python3 hologram_poller.py --once --dump   # check the API response
 python3 hologram_poller.py                 # poll every 60 s
 
-# Serial bench-test path
+# Serial bench-test path (needs Mosquitto: docker compose --profile bench up -d)
 python3 mqtt_to_postgres.py                                # terminal 1
 python3 serial_mqtt_bridge.py --port /dev/cu.usbmodem1101  # terminal 2
 
