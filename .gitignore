@@ -4,3 +4,4 @@ __pycache__/
 dead_letter.jsonl
 .DS_Store
 CLAUDE.md
+cellular_weather/secrets.h
