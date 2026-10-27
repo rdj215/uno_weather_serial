@@ -1,16 +1,18 @@
 /*
   uno_weather_serial.ino — Arduino Uno + DHT11 (ELEGOO 37-in-1 kit) weather node.
 
-  The Uno has no network of its own, so for now it prints one JSON reading per
-  line over USB serial. serial_mqtt_bridge.py on your laptop reads those lines
-  and publishes them to MQTT. When the LTE-M shield arrives, the shield takes
-  the laptop's place and the Uno publishes over cellular directly.
+  Bench-test sketch: prints one JSON reading per line over USB serial, which
+  serial_mqtt_bridge.py on the laptop publishes to MQTT. The cellular sketch
+  (cellular_weather/cellular_weather.ino) is the main path; this one tests the
+  sensor and the serial -> MQTT -> Postgres pipeline without the modem.
 
-  Wiring (DHT11 module from the ELEGOO kit, 3 pins):
-    S  (signal) -> D2
-    +  (VCC)    -> 5V
-    -  (GND)    -> GND
-  Pin labels vary slightly by module revision; the middle pin is usually VCC.
+  Wiring: the DHT11 module plugs straight into the top header (the Uno's, or
+  the SIM7000G shield's, which passes through), no jumper wires:
+    -  (GND)    -> GND (next to AREF)
+    +  (VCC)    -> 13  (driven HIGH by the sketch to power the sensor)
+    S  (signal) -> 12
+  Pin 13 can power the sensor because the DHT11 draws only a few milliamps.
+  The board's "L" LED stays lit as a side effect.
 
   Library (Arduino Library Manager):
     - "DHT sensor library" by Adafruit (accept the prompt to also install
@@ -41,12 +43,6 @@ void setup() {
   dht.begin();
   Serial.println(F("{\"event\":\"boot\"}"));
 }
-
-// void setup() {
-//   Serial.begin(9600);
-//   dht.begin();
-//   Serial.println(F("{\"event\":\"boot\"}"));
-// }
 
 void loop() {
   unsigned long now = millis();
